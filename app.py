@@ -312,16 +312,16 @@ def main():
         col1, col2, col3, col4 = st.columns(4)  # Create four columns
 
         with col1:
-            if st.button("Student", className="role-button"):
+            if st.markdown("""<button class="role-button">Student</button>""", unsafe_allow_html=True):
                 student_landing_page()
         with col2:
-            if st.button("Company", className="role-button"):
+            if st.markdown("""<button class="role-button">Company</button>""", unsafe_allow_html=True):
                 company_landing_page()
         with col3:
-            if st.button("PHDCCI", className="role-button"):
+            if st.markdown("""<button class="role-button">PHDCCI</button>""", unsafe_allow_html=True):
                 phdcci_admin_landing_page()
         with col4:
-            if st.button("NTTM", className="role-button"):
+            if st.markdown("""<button class="role-button">NTTM</button>""", unsafe_allow_html=True):
                 nttm_admin_landing_page()
 
         st.markdown("</div>", unsafe_allow_html=True) # Close button-grid
