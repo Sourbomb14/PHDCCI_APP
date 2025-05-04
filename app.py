@@ -287,7 +287,13 @@ def main():
                 unsafe_allow_html=True,
             )
 
-            if st.button("Student", key="student_button", className="role-button"):
+            # Use st.markdown to render the styled buttons
+            if st.markdown(
+                """
+                <button class="role-button">Student</button>
+                """,
+                unsafe_allow_html=True,
+            ):
                 student_choice = st.radio("Select Action", ["Register", "Login"])
                 if student_choice == "Register":
                     student_register()
@@ -296,7 +302,12 @@ def main():
                     st.session_state.logged_in = True
                     st.session_state.user_role = "student"
 
-            if st.button("Company", key="company_button", className="role-button"):
+            if st.markdown(
+                """
+                <button class="role-button">Company</button>
+                """,
+                unsafe_allow_html=True,
+            ):
                 company_choice = st.radio("Select Action", ["Register", "Login"])
                 if company_choice == "Register":
                     company_register()
@@ -305,12 +316,22 @@ def main():
                     st.session_state.logged_in = True
                     st.session_state.user_role = "company"
 
-            if st.button("PHDCCI", key="phdcci_button", className="role-button"):
+            if st.markdown(
+                """
+                <button class="role-button">PHDCCI</button>
+                """,
+                unsafe_allow_html=True,
+            ):
                 if authenticate_admin("PHDCCI"):
                     st.session_state.logged_in = True
                     st.session_state.user_role = "phdcci"
 
-            if st.button("NTTM", key="nttm_button", className="role-button"):
+            if st.markdown(
+                """
+                <button class="role-button">NTTM</button>
+                """,
+                unsafe_allow_html=True,
+            ):
                 if authenticate_admin("NTTM"):
                     st.session_state.logged_in = True
                     st.session_state.user_role = "nttm"
@@ -330,3 +351,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
