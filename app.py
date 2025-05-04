@@ -6,8 +6,11 @@ import shutil
 from datetime import datetime
 
 # Ensure required folders exist
-os.makedirs("uploads/resumes", exist_ok=True)
-os.makedirs("data", exist_ok=True)
+if not os.path.exists("uploads/resumes"):
+    os.makedirs("uploads/resumes")
+
+if not os.path.exists("data"):
+    os.makedirs("data")
 
 # -------------------------------
 # Database setup
