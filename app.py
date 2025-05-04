@@ -1,76 +1,120 @@
 import streamlit as st
 import sqlite3
 import os
+from PIL import Image  # Import for image handling
 
 # --- Constants ---
 UPLOAD_FOLDER = "uploads/resumes"
 DATA_FOLDER = "data"
 DB_PATH = os.path.join(DATA_FOLDER, "users.db")
-
-# --- Ensure required folders are present ---
-def ensure_directories():
-    if os.path.exists(UPLOAD_FOLDER):
-        if not os.path.isdir(UPLOAD_FOLDER):
-            os.remove(UPLOAD_FOLDER)
-            os.makedirs(UPLOAD_FOLDER)
-    else:
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-    os.makedirs(DATA_FOLDER, exist_ok=True)
-
-# --- Initialize the database ---
-def initialize_db():
-    if not os.path.exists(DB_PATH):
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            contact TEXT,
-            email TEXT,
-            qualification TEXT,
-            aadhar TEXT,
-            resume TEXT
-        )
-        """)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS companies (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            company_name TEXT,
-            industry TEXT,
-            description TEXT,
-            openings TEXT
-        )
-        """)
-        conn.commit()
-        conn.close()
-
-# --- Database Connection Helper ---
-def get_conn():
-    return sqlite3.connect(DB_PATH)
-
-# --- Admin Credentials (Hardcoded for now) ---
-admin_credentials = {
+ADMIN_CREDENTIALS = {  # Use a constant for credentials
     "phdcciadmin": "phdcci123",
     "nttadmin": "ntt123"
 }
 
+# --- Helper Functions ---
+
+def ensure_directories():
+    """
+    Ensures that the necessary directories (UPLOAD_FOLDER, DATA_FOLDER) exist.
+    Creates them if they don't.  Handles potential errors during directory creation.
+    """
+    for folder in [UPLOAD_FOLDER, DATA_FOLDER]:
+        if not os.path.exists(folder):
+            try:
+                os.makedirs(folder)
+                st.info(f"Created directory: {folder}")  # Use st.info for non-error messages
+            except OSError as e:
+                st.error(f"Error creating directory {folder}: {e}")
+                st.stop()  # Stop execution if directory creation fails
+
+def initialize_db():
+    """
+    Initializes the SQLite database.  Creates the database file and tables if they
+    don't exist.  Includes error handling for database operations.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS students (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                contact TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                qualification TEXT NOT NULL,
+                aadhar TEXT NOT NULL UNIQUE,
+                resume TEXT NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS companies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_name TEXT NOT NULL UNIQUE,
+                industry TEXT NOT NULL,
+                description TEXT NOT NULL,
+                openings TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+        conn.close()
+        st.info("Database initialized/connected.")
+    except sqlite3.Error as e:
+        st.error(f"Error initializing database: {e}")
+        st.stop()  # Stop if database initialization fails
+
+def get_conn():
+    """
+    Establishes and returns a database connection.  Handles potential connection errors.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        return conn
+    except sqlite3.Error as e:
+        st.error(f"Error connecting to database: {e}")
+        st.stop()
+
+# --- UI Components ---
+
+def create_spacer(height=20):
+    """Creates vertical space in the Streamlit UI."""
+    st.markdown(f"<div style='margin-top:{height}px;'></div>", unsafe_allow_html=True)
+
 # --- Student Registration ---
 def student_register():
+    """
+    Handles student registration.  Validates input, saves resume, and stores
+    student data in the database.  Improves user feedback with st.messages.
+    """
     st.subheader("Student Registration")
-    name = st.text_input("Name")
-    contact = st.text_input("Contact Number")
-    email = st.text_input("Email-ID")
-    qualification = st.text_input("Qualification")
-    aadhar = st.text_input("Aadhar Card Number")
-    resume = st.file_uploader("Upload Resume", type=["pdf", "docx", "txt"])
+
+    # Use placeholders for better UI
+    name = st.text_input("Name", placeholder="Enter your full name")
+    contact = st.text_input("Contact Number", placeholder="Enter your phone number")
+    email = st.text_input("Email-ID", placeholder="Enter your email address")
+    qualification = st.text_input("Qualification", placeholder="Enter your highest qualification")
+    aadhar = st.text_input("Aadhar Card Number", placeholder="Enter your Aadhar number")
+    resume = st.file_uploader("Upload Resume", type=["pdf", "docx", "txt"],
+                             help="Upload your resume in PDF, DOCX, or TXT format")
 
     if st.button("Register"):
-        if name and contact and email and qualification and aadhar and resume:
+        if not all([name, contact, email, qualification, aadhar, resume]):
+            st.error("All fields are required. Please fill out the form completely.")
+            return  # Stop if any field is missing
+
+        # Basic email and phone validation (you can expand this)
+        if "@" not in email or "." not in email:
+            st.error("Invalid email address. Please enter a valid email.")
+            return
+        if not contact.isdigit() or len(contact) < 8:
+            st.error("Invalid contact number. Please enter a valid phone number.")
+            return
+
+        try:
             resume_path = os.path.join(UPLOAD_FOLDER, resume.name)
             with open(resume_path, "wb") as f:
-                f.write(resume.getbuffer())
+                f.write(resume.getbuffer())  # Use getbuffer() for file-like object
 
             conn = get_conn()
             cursor = conn.cursor()
@@ -80,20 +124,26 @@ def student_register():
             """, (name, contact, email, qualification, aadhar, resume.name))
             conn.commit()
             conn.close()
-            st.success("Registration successful!")
-        else:
-            st.error("All fields are required.")
+            st.success("Registration successful!  You can now log in.") #changed from previous registration successful
+        except (OSError, sqlite3.Error) as e:
+            st.error(f"An error occurred during registration: {e}")
+            st.stop()
 
 # --- Company Registration ---
 def company_register():
+    """Handles company registration, storing data in the database."""
     st.subheader("Company Registration")
-    company_name = st.text_input("Company Name")
-    industry = st.text_input("Industry")
-    description = st.text_area("Description of Company")
-    openings = st.text_area("Internship/Job Openings")
+    company_name = st.text_input("Company Name", placeholder="Enter company name")
+    industry = st.text_input("Industry", placeholder="Enter industry")
+    description = st.text_area("Description of Company", placeholder="Enter company description")
+    openings = st.text_area("Internship/Job Openings", placeholder="Describe openings")
 
     if st.button("Register"):
-        if company_name and industry and description and openings:
+        if not all([company_name, industry, description, openings]):
+            st.error("All fields are required.")
+            return
+
+        try:
             conn = get_conn()
             cursor = conn.cursor()
             cursor.execute("""
@@ -103,79 +153,124 @@ def company_register():
             conn.commit()
             conn.close()
             st.success("Company registration successful!")
-        else:
-            st.error("Please fill all fields.")
+        except sqlite3.Error as e:
+            st.error(f"Error during company registration: {e}")
+            st.stop()
 
-# --- Admin Login Function ---
+# --- Admin Login ---
 def authenticate_admin(role):
+    """Handles admin login and authentication."""
     st.subheader(f"{role} Admin Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    username = st.text_input("Username", placeholder="Enter username")
+    password = st.text_input("Password", type="password", placeholder="Enter password")
 
     if st.button("Login"):
-        if username in admin_credentials and admin_credentials[username] == password:
+        if username in ADMIN_CREDENTIALS and ADMIN_CREDENTIALS[username] == password:
             st.success(f"Welcome {username}!")
-            return username
+            st.session_state.user_role = role  # Store role in session state
+            st.session_state.logged_in = True
+            return True  # Indicate successful login
         else:
             st.error("Invalid credentials.")
-    return None
+            return False
+    return False
 
-# --- Student Profile & Companies View Placeholder ---
+# --- Student/Company/Admin Dashboards ---
 def student_dashboard():
-    st.info("Student dashboard under development.")
+    """Placeholder for student dashboard functionality."""
+    st.header("Student Dashboard")
+    st.info("Student dashboard is under development.  Here, students will be able to:")
+    st.markdown("- View and update their profile")
+    st.markdown("- Browse available internships and jobs")
+    st.markdown("- Apply for opportunities")
     # Add: View profile, Browse companies, Apply, etc.
 
-# --- Company Dashboard Placeholder ---
 def company_dashboard():
-    st.info("Company dashboard under development.")
-    # Add: View applicants, shortlist, etc.
+    """Placeholder for company dashboard functionality."""
+    st.header("Company Dashboard")
+    st.info("Company dashboard is under development. Here, companies will be able to:")
+    st.markdown("- View and update their company profile")
+    st.markdown("- Post internship and job openings")
+    st.markdown("- View and manage applications")
 
-# --- PHDCCI Dashboard Placeholder ---
 def phdcci_admin_dashboard():
-    st.info("PHDCCI admin dashboard under development.")
-    # Add: View students, companies, recommend candidates, etc.
+    """Placeholder for PHDCCI admin dashboard functionality."""
+    st.header("PHDCCI Admin Dashboard")
+    st.info("PHDCCI admin dashboard is under development.  PHDCCI admins will be able to:")
+    st.markdown("- Manage student and company accounts")
+    st.markdown("- View application statistics")
+    st.markdown("- Generate reports")
 
-# --- NTTM Dashboard Placeholder ---
 def nttm_admin_dashboard():
-    st.info("NTTM admin dashboard under development.")
-    # Add: View students, companies, recommendations, approve etc.
+    """Placeholder for NTTM admin dashboard functionality."""
+    st.header("NTTM Admin Dashboard")
+    st.info("NTTM admin dashboard is under development.  NTTM admins will be able to:")
+    st.markdown("- Manage and approve student and company registrations")
+    st.markdown("- Oversee the internship and placement process")
+    st.markdown("- Track key metrics")
 
-# --- Main Landing Page Logic ---
+# --- Main App ---
 def main():
+    """Main function to run the Streamlit app."""
     st.title("Internship & Placement Portal")
 
-    st.markdown("## Choose Your Role")
-    col1, col2, col3, col4 = st.columns(4)
+    # --- Initialize Session State ---
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+        st.session_state.user_role = None
 
-    with col1:
-        if st.button("Student"):
-            student_choice = st.radio("Select Action", ["Register", "Login"])
-            if student_choice == "Register":
-                student_register()
-            elif student_choice == "Login":
-                student_dashboard()
+    ensure_directories()  # Ensure directories exist
+    initialize_db()     # Initialize the database
 
-    with col2:
-        if st.button("Company"):
-            company_choice = st.radio("Select Action", ["Register", "Login"])
-            if company_choice == "Register":
-                company_register()
-            elif company_choice == "Login":
-                company_dashboard()
+    if not st.session_state.logged_in:
+        # --- Role Selection on Main Page ---
+        st.markdown("## Choose Your Role")
+        col1, col2, col3, col4 = st.columns(4)  # Create four columns
 
-    with col3:
-        if st.button("PHDCCI"):
-            user = authenticate_admin("PHDCCI")
-            if user == "phdcciadmin":
-                phdcci_admin_dashboard()
+        with col1:
+            if st.button("Student"):
+                student_choice = st.radio("Select Action", ["Register", "Login"])
+                if student_choice == "Register":
+                    student_register()
+                elif student_choice == "Login":
+                    student_dashboard() #changed from previous login
+                    st.session_state.logged_in = True
+                    st.session_state.user_role = "student"
 
-    with col4:
-        if st.button("NTTM"):
-            user = authenticate_admin("NTTM")
-            if user == "nttadmin":
-                nttm_admin_dashboard()
+        with col2:
+            if st.button("Company"):
+                company_choice = st.radio("Select Action", ["Register", "Login"])
+                if company_choice == "Register":
+                    company_register()
+                elif company_choice == "Login":
+                    company_dashboard() #changed from previous login
+                    st.session_state.logged_in = True
+                    st.session_state.user_role = "company"
 
-# --- Run App ---
-ensure_directories()
-initialize_db()
-main()
+        with col3:
+            if st.button("PHDCCI"):
+                if authenticate_admin("PHDCCI"):
+                    st.session_state.logged_in = True
+                    st.session_state.user_role = "phdcci"
+
+        with col4:
+            if st.button("NTTM"):
+                if authenticate_admin("NTTM"):
+                    st.session_state.logged_in = True
+                    st.session_state.user_role = "nttm"
+    # ---  Route to correct dashboard ---
+    if st.session_state.logged_in:
+        if st.session_state.user_role == "student":
+            student_dashboard()
+        elif st.session_state.user_role == "company":
+            company_dashboard()
+        elif st.session_state.user_role == "phdcci":
+            phdcci_admin_dashboard()
+        elif st.session_state.user_role == "nttm":
+            nttm_admin_dashboard()
+        else:
+            st.error("Unknown user role. Please contact administrator.") #error message
+
+if __name__ == "__main__":
+    main()
+
