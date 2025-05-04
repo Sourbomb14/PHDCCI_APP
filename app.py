@@ -30,8 +30,8 @@ def ensure_directories():
 
 def initialize_db():
     """
-    Initializes the SQLite database.  Creates the database file and tables if they
-    don't exist.  Includes error handling for database operations.
+    Initializes the SQLite database.  Creates the SQLite database file and the student and company tables if they
+    don't exist. It handles potential errors during database operations.
     """
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -223,23 +223,109 @@ def main():
 
     # --- Separate Landing Pages ---
     if not st.session_state.logged_in:
-        st.title("Internship & Placement Portal")
-        st.markdown("## Choose Your Role")
+        # st.title("Internship & Placement Portal")
+        # st.markdown("## Choose Your Role")
 
-        col1, col2, col3, col4 = st.columns(4)
+        # col1, col2, col3, col4 = st.columns(4)
+
+        # with col1:
+        #     if st.button("Student"):
+        #         student_landing_page()
+        # with col2:
+        #     if st.button("Company"):
+        #         company_landing_page()
+        # with col3:
+        #     if st.button("PHDCCI"):
+        #         phdcci_admin_landing_page()
+        # with col4:
+        #     if st.button("NTTM"):
+        #         nttm_admin_landing_page()
+        
+        # --- New Landing Page Style ---
+        st.markdown(
+            """
+            <style>
+            body {
+                font-family: 'Arial', sans-serif;
+                background-color: #f0f4f8;
+                color: #333;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #fff;
+                border-radius: 10px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                text-align: center;
+            }
+            h1 {
+                font-size: 2.5rem;
+                color: #007bff;
+                margin-bottom: 20px;
+            }
+            p {
+                font-size: 1.1rem;
+                margin-bottom: 20px;
+            }
+            .button-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .role-button {
+                padding: 12px 24px;
+                font-size: 1.2rem;
+                font-weight: bold;
+                color: white;
+                background-color: #007bff;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.3s ease, transform 0.2s ease;
+            }
+            .role-button:hover {
+                background-color: #0056b3;
+                transform: translateY(-2px);
+            }
+            @media (max-width: 600px) {
+                .button-grid {
+                    grid-template-columns: 1fr;
+                }
+                .role-button {
+                    width: 100%;
+                }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<div class='container'>", unsafe_allow_html=True)
+        st.markdown("<h1 class='display-4'>Internship & Placement Portal</h1>", unsafe_allow_html=True)
+        st.markdown("<p class='lead'>Welcome to our platform, designed to connect students with exciting internship and placement opportunities.</p>", unsafe_allow_html=True)
+        st.markdown("<div class='button-grid'>", unsafe_allow_html=True)
+
+        col1, col2, col3, col4 = st.columns(4)  # Create four columns
 
         with col1:
-            if st.button("Student"):
+            if st.button("Student", className="role-button"):
                 student_landing_page()
         with col2:
-            if st.button("Company"):
+            if st.button("Company", className="role-button"):
                 company_landing_page()
         with col3:
-            if st.button("PHDCCI"):
+            if st.button("PHDCCI", className="role-button"):
                 phdcci_admin_landing_page()
         with col4:
-            if st.button("NTTM"):
+            if st.button("NTTM", className="role-button"):
                 nttm_admin_landing_page()
+
+        st.markdown("</div>", unsafe_allow_html=True) # Close button-grid
+        st.markdown("</div>", unsafe_allow_html=True) # Close container
 
     # ---  Route to correct dashboard ---
     if st.session_state.logged_in:
