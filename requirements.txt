@@ -1,1 +1,6 @@
+streamlit
+streamlit_authenticator
+sqlite3
+pandas
+email-validator
 
