@@ -9,6 +9,11 @@ DB_PATH = os.path.join(DATA_FOLDER, "users.db")
 
 # Initialize database if not already present
 def initialize_db():
+    # Ensure the 'data' folder exists
+    if not os.path.exists(DATA_FOLDER):
+        os.makedirs(DATA_FOLDER)
+        
+    # Check if the database file exists
     if not os.path.exists(DB_PATH):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -150,4 +155,3 @@ elif role == "NTTM":
     if authenticate_admin("NTTM"):
         st.write("You can now access all student and company data.")
         # Implement admin features like viewing PHDCCI recommendations, approving final lists, etc.
-
