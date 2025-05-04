@@ -1,88 +1,135 @@
 import streamlit as st
-import sqlite3
 import os
+import sqlite3
 from datetime import datetime
-import streamlit_authenticator as stauth
 
-# Folder paths (assumes they already exist in the repo)
-UPLOAD_FOLDER = "uploads/resumes"
-DB_PATH = "data/users.db"
+# Simulate database with a dictionary (for simplicity, use real databases in production)
+students_db = {}
+companies_db = {}
 
-# Ensure the database exists
-if not os.path.exists(DB_PATH):
-    os.makedirs(DB_PATH)
-
-# Admin credentials setup
-auth_users = {
-    "students": {
-        "usernames": ["student1", "student2"],
-        "passwords": ["pass1", "pass2"]
-    },
-    "companies": {
-        "usernames": ["company1", "company2"],
-        "passwords": ["compass1", "compass2"]
-    },
-    "admins": {
-        "usernames": ["phdcci", "nttm"],
-        "passwords": ["admin123", "nttmadmin"]
-    }
+# Predefined admin credentials
+admin_credentials = {
+    "phdcciadmin": "phdcci123",  # PHDCCI admin
+    "nttadmin": "ntt123"         # NTTM admin
 }
 
-# Authenticate function using streamlit-authenticator
-def authenticate(role):
-    usernames = auth_users[role]["usernames"]
-    passwords = auth_users[role]["passwords"]
-    hashed_pw = stauth.Hasher(passwords).generate()
-    authenticator = stauth.Authenticate(usernames, hashed_pw, usernames, "Login", "sidebar")
+# Ensure required folders exist
+os.makedirs("uploads/resumes", exist_ok=True)
+os.makedirs("data", exist_ok=True)
+
+# Helper function to simulate database connection
+def get_conn():
+    conn = sqlite3.connect("data/users.db")
+    return conn
+
+# Student registration
+def register_student():
+    st.subheader("Student Registration")
+    name = st.text_input("Name")
+    email = st.text_input("Email")
+    contact = st.text_input("Contact Number")
+    qualification = st.text_input("Qualification")
+    aadhar = st.text_input("Aadhar Card Number")
+    resume = st.file_uploader("Upload Resume", type=["pdf", "doc", "docx"])
+
+    if st.button("Register"):
+        if name and email and contact and qualification and aadhar and resume:
+            students_db[email] = {
+                "name": name,
+                "email": email,
+                "contact": contact,
+                "qualification": qualification,
+                "aadhar": aadhar,
+                "resume": resume
+            }
+            st.success("Registration successful!")
+        else:
+            st.error("Please fill in all details.")
+
+# Student login
+def student_login():
+    st.subheader("Student Login")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if email in students_db:
+            # For simplicity, we're assuming the password is just the email for demonstration.
+            st.success(f"Welcome {students_db[email]['name']}!")
+            student_module()
+        else:
+            st.error("Invalid email or password.")
+
+# Company registration
+def register_company():
+    st.subheader("Company Registration")
+    company_name = st.text_input("Company Name")
+    industry = st.text_input("Industry")
+    description = st.text_area("Company Description")
+    openings = st.text_area("Internship/Job Openings")
+
+    if st.button("Register"):
+        if company_name and industry and description and openings:
+            companies_db[company_name] = {
+                "company_name": company_name,
+                "industry": industry,
+                "description": description,
+                "openings": openings
+            }
+            st.success("Company registration successful!")
+        else:
+            st.error("Please fill in all details.")
+
+# Admin login function
+def admin_login():
+    st.subheader("Admin Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if username in admin_credentials and admin_credentials[username] == password:
+            st.success(f"Welcome {username}!")
+            if username == "phdcciadmin":
+                phdcci_admin_module()
+            elif username == "nttadmin":
+                nttm_admin_module()
+        else:
+            st.error("Invalid credentials.")
+
+# Modules for admins
+def phdcci_admin_module():
+    st.title("PHDCCI Admin Module")
+    st.write("Here, the PHDCCI admin can oversee all operations.")
+
+def nttm_admin_module():
+    st.title("NTTM Admin Module")
+    st.write("Here, the NTTM admin can oversee all operations.")
+
+# Main module
+def main():
+    st.title("Internship Management System")
     
-    return authenticator.login("Login", "sidebar")
+    role = st.sidebar.selectbox("Login As", ["Student", "Company", "PHDCCI", "NTTM"])
 
-# Define modules for different user roles
-def student_module():
-    st.header("Student Dashboard")
-    st.write("This is where students can view their details and apply to opportunities.")
-    # Student-specific functionality here
+    if role == "Student":
+        action = st.radio("Select Action", ["Login", "Register"])
+        if action == "Login":
+            student_login()
+        elif action == "Register":
+            register_student()
 
-def company_module():
-    st.header("Company Dashboard")
-    st.write("This is where companies can view student applications and shortlist candidates.")
-    # Company-specific functionality here
+    elif role == "Company":
+        action = st.radio("Select Action", ["Login", "Register"])
+        if action == "Login":
+            student_login()  # You can add a different login for companies later
+        elif action == "Register":
+            register_company()
 
-def phdcci_module():
-    st.header("PHDCCI Dashboard")
-    st.write("This is where PHDCCI can review and manage recommendations.")
-    # PHDCCI-specific functionality here
+    elif role == "PHDCCI":
+        admin_login()
 
-def nttm_module():
-    st.header("NTTM Dashboard")
-    st.write("This is where NTTM can approve recommendations for fund/disbursements.")
-    # NTTM-specific functionality here
+    elif role == "NTTM":
+        admin_login()
 
-# Landing Page
-st.title("Internship Management App")
-role = st.sidebar.selectbox("Login As", ["Student", "Company", "PHDCCI", "NTTM"])
-
-# Role-specific login or registration
-if role == "Student":
-    is_auth, name, username = authenticate("students")
-    if is_auth:
-        st.success(f"Welcome {name}")
-        student_module()
-
-elif role == "Company":
-    is_auth, name, username = authenticate("companies")
-    if is_auth:
-        st.success(f"Welcome {name}")
-        company_module()
-
-elif role == "PHDCCI":
-    is_auth, name, username = authenticate("admins")
-    if is_auth:
-        st.success("Welcome PHDCCI Admin")
-        phdcci_module()
-
-elif role == "NTTM":
-    is_auth, name, username = authenticate("admins")
-    if is_auth:
-        st.success("Welcome NTTM Admin")
-        nttm_module()
+if __name__ == "__main__":
+    main()
