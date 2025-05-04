@@ -1,159 +1,174 @@
-import os
-import sqlite3
 import streamlit as st
 import streamlit_authenticator as stauth
+import sqlite3
+import os
+import shutil
 from datetime import datetime
-from PIL import Image
 
-# Constants
+# Ensure required folders exist
+os.makedirs("uploads/resumes", exist_ok=True)
+os.makedirs("data", exist_ok=True)
+
+# -------------------------------
+# Database setup
 DB_PATH = "data/users.db"
 UPLOAD_FOLDER = "uploads/resumes/"
 
-# Ensure required folders exist, with error handling
-try:
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-except FileExistsError:
-    pass
-
-try:
-    os.makedirs("data", exist_ok=True)
-except FileExistsError:
-    pass
-
-# Admin credentials (hashed inside authenticate())
-auth_users = {
-    "students": {
-        "names": ["Student"],
-        "usernames": ["student"],
-        "passwords": ["student123"]
-    },
-    "companies": {
-        "names": ["Company"],
-        "usernames": ["company"],
-        "passwords": ["company123"]
-    },
-    "admins": {
-        "names": ["PHDCCI", "NTTM"],
-        "usernames": ["phdcci", "nttm"],
-        "passwords": ["phdcci123", "nttm123"]
-    }
-}
-
-def get_conn():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
-
 def init_db():
-    conn = get_conn()
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS students (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT,
-                    email TEXT,
-                    resume_path TEXT
-                )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS companies (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT,
-                    description TEXT
-                )''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            email TEXT,
+            role TEXT,
+            company TEXT,
+            resume TEXT,
+            approved INTEGER DEFAULT 0
+        )
+    ''')
     conn.commit()
     conn.close()
 
+def get_conn():
+    return sqlite3.connect(DB_PATH)
+
+# -------------------------------
+# Authentication Setup
+
+# Pre-hashed passwords generated via Hasher(['student@123', 'company@123', 'phdcci@123'])
+hashed_passwords = {
+    "students": ['$2b$12$A0yK3pH3t/IOWDz3nYmG0uQxKXac/8svfkpq0I4fAqre8AMnxVyiW'],
+    "companies": ['$2b$12$6o20qvmQoRBkVRch0xXYi.1VuK9HtthxwHYf3ErEsg0KkuKkvyKsm'],
+    "admins": ['$2b$12$7FeyHBiFx1MIcDeZ6f5Ldu4OlAgmR1USZtU2D3Eh9ZCvW38kkfYZa']
+}
+
+auth_users = {
+    "students": {
+        "usernames": ["student"],
+        "names": ["Student"],
+        "hashed_passwords": hashed_passwords["students"]
+    },
+    "companies": {
+        "usernames": ["company"],
+        "names": ["Company"],
+        "hashed_passwords": hashed_passwords["companies"]
+    },
+    "admins": {
+        "usernames": ["phdcci"],
+        "names": ["PHDCCI Admin"],
+        "hashed_passwords": hashed_passwords["admins"]
+    }
+}
+
 def authenticate(role):
-    names = auth_users[role]["names"]
     usernames = auth_users[role]["usernames"]
-    passwords = auth_users[role]["passwords"]
-
-    hashed_pw = stauth.Hasher().generate(passwords)
-
+    names = auth_users[role]["names"]
+    passwords = auth_users[role]["hashed_passwords"]
+    
     authenticator = stauth.Authenticate(
-        names,
-        usernames,
-        hashed_pw,
-        role,
-        cookie_expiry_days=1
+        names, usernames, passwords, 
+        "internapp", "abcdef", cookie_expiry_days=1
     )
-
     name, auth_status, username = authenticator.login(f"Login as {role.capitalize()}", "main")
     return auth_status, name, username
 
+# -------------------------------
+# Page Sections
+
 def student_section():
-    st.subheader("Student Dashboard")
-    name = st.text_input("Enter your name")
-    email = st.text_input("Enter your email")
-    resume = st.file_uploader("Upload Resume (PDF only)", type=['pdf'])
-    
+    st.header("Student Dashboard")
+    name = st.text_input("Full Name")
+    email = st.text_input("Email")
+    uploaded_file = st.file_uploader("Upload Resume", type=["pdf", "docx"])
+
     if st.button("Submit"):
-        if name and email and resume:
-            file_path = os.path.join(UPLOAD_FOLDER, resume.name)
-            with open(file_path, "wb") as f:
-                f.write(resume.read())
+        if name and email and uploaded_file:
+            resume_path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
+            with open(resume_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
             conn = get_conn()
             c = conn.cursor()
-            c.execute("INSERT INTO students (name, email, resume_path) VALUES (?, ?, ?)", (name, email, file_path))
+            c.execute("INSERT INTO users (name, email, role, resume) VALUES (?, ?, ?, ?)", 
+                      (name, email, "student", resume_path))
             conn.commit()
             conn.close()
-            st.success("Resume submitted successfully!")
+            st.success("Application submitted successfully!")
         else:
-            st.warning("Please fill all fields and upload resume.")
+            st.error("Please fill all fields and upload your resume.")
 
 def company_section():
-    st.subheader("Company Dashboard")
-    name = st.text_input("Company Name")
-    description = st.text_area("About the company")
+    st.header("Company Dashboard")
+    name = st.text_input("Company Representative Name")
+    email = st.text_input("Company Email")
+    company = st.text_input("Company Name")
 
-    if st.button("Register Company"):
-        if name and description:
+    if st.button("Register"):
+        if name and email and company:
             conn = get_conn()
             c = conn.cursor()
-            c.execute("INSERT INTO companies (name, description) VALUES (?, ?)", (name, description))
+            c.execute("INSERT INTO users (name, email, role, company) VALUES (?, ?, ?, ?)", 
+                      (name, email, "company", company))
             conn.commit()
             conn.close()
             st.success("Company registered successfully!")
         else:
-            st.warning("Please complete all fields.")
+            st.error("Please fill all fields.")
 
-def admin_view():
-    st.subheader("Admin View")
+def admin_section():
+    st.header("Admin Dashboard")
     conn = get_conn()
     c = conn.cursor()
-
-    st.markdown("### Registered Students")
-    students = c.execute("SELECT name, email, resume_path FROM students").fetchall()
-    for name, email, resume in students:
-        st.write(f"**Name:** {name}, **Email:** {email}, **Resume:** {resume}")
-
-    st.markdown("### Registered Companies")
-    companies = c.execute("SELECT name, description FROM companies").fetchall()
-    for name, desc in companies:
-        st.write(f"**Company:** {name}, **Description:** {desc}")
-
+    c.execute("SELECT id, name, email, role, company, resume, approved FROM users")
+    data = c.fetchall()
     conn.close()
 
-# Initialize DB
+    for row in data:
+        st.write(f"**ID:** {row[0]}")
+        st.write(f"**Name:** {row[1]}")
+        st.write(f"**Email:** {row[2]}")
+        st.write(f"**Role:** {row[3]}")
+        if row[3] == "company":
+            st.write(f"**Company:** {row[4]}")
+        if row[3] == "student":
+            st.write(f"**Resume:** {row[5]}")
+        approved = "✅ Approved" if row[6] else "❌ Not Approved"
+        st.write(f"**Status:** {approved}")
+
+        if not row[6]:
+            if st.button(f"Approve {row[1]} (ID: {row[0]})"):
+                conn = get_conn()
+                c = conn.cursor()
+                c.execute("UPDATE users SET approved = 1 WHERE id = ?", (row[0],))
+                conn.commit()
+                conn.close()
+                st.success(f"Approved {row[1]}")
+                st.experimental_rerun()
+        st.markdown("---")
+
+# -------------------------------
+# App Logic
+
 init_db()
+st.title("Internship Management Portal")
 
-st.title("PHDCCI Internship Management System")
-
-role = st.sidebar.selectbox("Login As", ["Student", "Company", "PHDCCI", "NTTM"])
+role = st.sidebar.selectbox("Login As", ["Student", "Company", "PHDCCI"])
 
 if role == "Student":
     is_auth, name, username = authenticate("students")
-    if is_auth and username == "student":
-        st.success("Welcome Student")
+    if is_auth:
+        st.success(f"Welcome, {name}")
         student_section()
+
 elif role == "Company":
     is_auth, name, username = authenticate("companies")
-    if is_auth and username == "company":
-        st.success("Welcome Company")
+    if is_auth:
+        st.success(f"Welcome, {name}")
         company_section()
+
 elif role == "PHDCCI":
     is_auth, name, username = authenticate("admins")
     if is_auth and username == "phdcci":
         st.success("Welcome PHDCCI Admin")
-        admin_view()
-elif role == "NTTM":
-    is_auth, name, username = authenticate("admins")
-    if is_auth and username == "nttm":
-        st.success("Welcome NTTM Admin")
-        admin_view()
+        admin_section()
