@@ -221,120 +221,25 @@ def main():
     ensure_directories()  # Ensure directories exist
     initialize_db()  # Initialize the database
 
+    # --- Separate Landing Pages ---
     if not st.session_state.logged_in:
-        # --- Styled Landing Page ---
         st.title("Internship & Placement Portal")
+        st.markdown("## Choose Your Role")
 
-        # Use columns for layout
-        col1, col2, col3 = st.columns([1, 2, 1])  # Adjust column widths as needed
+        col1, col2, col3, col4 = st.columns(4)
 
+        with col1:
+            if st.button("Student"):
+                student_landing_page()
         with col2:
-            st.markdown(
-                """
-                <style>
-                .big-title {
-                    font-size: 2.5rem;
-                    font-weight: bold;
-                    color: #007bff;  /* Blue color for emphasis */
-                    margin-bottom: 1rem;
-                    text-align: center;
-                }
-                .tagline {
-                    font-size: 1.2rem;
-                    color: #555;
-                    margin-bottom: 2rem;
-                    text-align: center;
-                }
-                .role-button {
-                    padding: 0.75rem 1.5rem;
-                    font-size: 1rem;
-                    border-radius: 0.375rem;
-                    margin-bottom: 1rem;
-                    width: 100%;
-                    display: block;
-                    background-color: #007bff; /* Blue */
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    transition: background-color 0.3s ease;
-                    text-align: center;
-                }
-                .role-button:hover {
-                    background-color: #0056b3;  /* Darker blue on hover */
-                }
-                .info-box {
-                    background-color: #e9ecef; /* Light gray background */
-                    padding: 1rem;
-                    border-radius: 0.375rem;
-                    margin-bottom: 1rem;
-                    text-align: center;
-                    color: #333;
-                    font-size: 0.9rem;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.markdown("<h1 class='big-title'>Welcome to Our Portal</h1>", unsafe_allow_html=True)
-            st.markdown(
-                "<p class='tagline'>Connecting Students and Companies for Exciting Opportunities</p>",
-                unsafe_allow_html=True,
-            )
-
-            st.markdown(
-                "<p class='info-box'>Are you a Student, Company, or Administrator? Choose your role to get started.</p>",
-                unsafe_allow_html=True,
-            )
-
-            # Use st.markdown to render the styled buttons
-            if st.markdown(
-                """
-                <button class="role-button">Student</button>
-                """,
-                unsafe_allow_html=True,
-            ):
-                student_choice = st.radio("Select Action", ["Register", "Login"], key="student_radio") # Added key
-                if student_choice == "Register":
-                    student_register()
-                elif student_choice == "Login":
-                    student_dashboard()
-                    st.session_state.logged_in = True
-                    st.session_state.user_role = "student"
-
-            if st.markdown(
-                """
-                <button class="role-button">Company</button>
-                """,
-                unsafe_allow_html=True,
-            ):
-                company_choice = st.radio("Select Action", ["Register", "Login"], key="company_radio") # Added key
-                if company_choice == "Register":
-                    company_register()
-                elif company_choice == "Login":
-                    company_dashboard()
-                    st.session_state.logged_in = True
-                    st.session_state.user_role = "company"
-
-            if st.markdown(
-                """
-                <button class="role-button">PHDCCI</button>
-                """,
-                unsafe_allow_html=True,
-            ):
-                if authenticate_admin("PHDCCI"):
-                    st.session_state.logged_in = True
-                    st.session_state.user_role = "phdcci"
-
-            if st.markdown(
-                """
-                <button class="role-button">NTTM</button>
-                """,
-                unsafe_allow_html=True,
-            ):
-                if authenticate_admin("NTTM"):
-                    st.session_state.logged_in = True
-                    st.session_state.user_role = "nttm"
+            if st.button("Company"):
+                company_landing_page()
+        with col3:
+            if st.button("PHDCCI"):
+                phdcci_admin_landing_page()
+        with col4:
+            if st.button("NTTM"):
+                nttm_admin_landing_page()
 
     # ---  Route to correct dashboard ---
     if st.session_state.logged_in:
@@ -349,6 +254,51 @@ def main():
         else:
             st.error("Unknown user role. Please contact administrator.")
 
+# --- Student Landing Page ---
+def student_landing_page():
+    st.title("Welcome Students!")
+    st.markdown("### Find your dream internship or job")
+    st.markdown("Register or Login to get started:")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Register", key="student_register"):
+            student_register()
+    with col2:
+        if st.button("Login", key="student_login"):
+            student_dashboard()
+            st.session_state.logged_in = True
+            st.session_state.user_role = "student"
+
+# --- Company Landing Page ---
+def company_landing_page():
+    st.title("Welcome Companies!")
+    st.markdown("### Post your internship/job openings and find the best talent")
+    st.markdown("Register or Login to get started:")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Register", key="company_register"):
+            company_register()
+    with col2:
+        if st.button("Login", key="company_login"):
+            company_dashboard()
+            st.session_state.logged_in = True
+            st.session_state.user_role = "company"
+
+# --- PHDCCI Admin Landing Page ---
+def phdcci_admin_landing_page():
+    st.title("Welcome PHDCCI Admin!")
+    st.markdown("### Manage the platform")
+    if authenticate_admin("PHDCCI"):
+        st.session_state.logged_in = True
+        st.session_state.user_role = "phdcci"
+
+# --- NTTM Admin Landing Page ---
+def nttm_admin_landing_page():
+    st.title("Welcome NTTM Admin!")
+    st.markdown("### Oversee the internship and placement process")
+    if authenticate_admin("NTTM"):
+        st.session_state.logged_in = True
+        st.session_state.user_role = "nttm"
+
 if __name__ == "__main__":
     main()
-
