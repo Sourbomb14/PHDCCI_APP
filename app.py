@@ -7,7 +7,40 @@ UPLOAD_FOLDER = "uploads/resumes"
 DATA_FOLDER = "data"
 DB_PATH = os.path.join(DATA_FOLDER, "users.db")
 
-# Ensure database connection is valid
+# Initialize database if not already present
+def initialize_db():
+    if not os.path.exists(DB_PATH):
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Create students table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            contact TEXT,
+            email TEXT,
+            qualification TEXT,
+            aadhar TEXT,
+            resume TEXT
+        )
+        """)
+
+        # Create companies table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_name TEXT,
+            industry TEXT,
+            description TEXT,
+            openings TEXT
+        )
+        """)
+
+        conn.commit()
+        conn.close()
+
+# Function to get the database connection
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
     return conn
@@ -82,6 +115,9 @@ def authenticate_admin(role):
     return False
 
 # -------------------------------
+
+# Call the initialize_db function to ensure the database is ready
+initialize_db()
 
 # Handle role-based login or registration
 
