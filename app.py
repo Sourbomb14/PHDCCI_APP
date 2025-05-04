@@ -1,135 +1,117 @@
 import streamlit as st
-import os
 import sqlite3
-from datetime import datetime
+import os
 
-# Simulate database with a dictionary (for simplicity, use real databases in production)
-students_db = {}
-companies_db = {}
+# Path to the existing folders and database in your GitHub repository
+UPLOAD_FOLDER = "uploads/resumes"
+DATA_FOLDER = "data"
+DB_PATH = os.path.join(DATA_FOLDER, "users.db")
 
-# Predefined admin credentials
-admin_credentials = {
-    "phdcciadmin": "phdcci123",  # PHDCCI admin
-    "nttadmin": "ntt123"         # NTTM admin
-}
-
-# Ensure required folders exist
-os.makedirs("uploads/resumes", exist_ok=True)
-os.makedirs("data", exist_ok=True)
-
-# Helper function to simulate database connection
+# Ensure database connection is valid
 def get_conn():
-    conn = sqlite3.connect("data/users.db")
+    conn = sqlite3.connect(DB_PATH)
     return conn
 
-# Student registration
-def register_student():
-    st.subheader("Student Registration")
+# -------------------------------
+
+# Admin credentials (hardcoded for now)
+admin_credentials = {
+    "phdcciadmin": "phdcci123",
+    "nttadmin": "ntt123"
+}
+
+# Role-specific login or registration
+role = st.sidebar.selectbox("Login As", ["Student", "Company", "PHDCCI", "NTTM"])
+
+# Function for Student Registration
+def student_registration():
+    st.title("Student Registration")
     name = st.text_input("Name")
-    email = st.text_input("Email")
     contact = st.text_input("Contact Number")
+    email = st.text_input("Email-ID")
     qualification = st.text_input("Qualification")
     aadhar = st.text_input("Aadhar Card Number")
-    resume = st.file_uploader("Upload Resume", type=["pdf", "doc", "docx"])
+    resume = st.file_uploader("Upload Resume", type=["pdf", "docx", "txt"])
 
     if st.button("Register"):
-        if name and email and contact and qualification and aadhar and resume:
-            students_db[email] = {
-                "name": name,
-                "email": email,
-                "contact": contact,
-                "qualification": qualification,
-                "aadhar": aadhar,
-                "resume": resume
-            }
-            st.success("Registration successful!")
+        if name and contact and email and qualification and aadhar and resume:
+            # Save data to database (Here, we are saving it to a file for simplicity)
+            conn = get_conn()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO students (name, contact, email, qualification, aadhar, resume) VALUES (?, ?, ?, ?, ?, ?)",
+                           (name, contact, email, qualification, aadhar, resume.name))
+            conn.commit()
+            conn.close()
+            st.success("Registration Successful!")
         else:
-            st.error("Please fill in all details.")
+            st.error("Please fill all fields and upload a resume!")
 
-# Student login
-def student_login():
-    st.subheader("Student Login")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        if email in students_db:
-            # For simplicity, we're assuming the password is just the email for demonstration.
-            st.success(f"Welcome {students_db[email]['name']}!")
-            student_module()
-        else:
-            st.error("Invalid email or password.")
-
-# Company registration
-def register_company():
-    st.subheader("Company Registration")
+# Function for Company Registration
+def company_registration():
+    st.title("Company Registration")
     company_name = st.text_input("Company Name")
     industry = st.text_input("Industry")
-    description = st.text_area("Company Description")
+    description = st.text_area("Description of Company")
     openings = st.text_area("Internship/Job Openings")
 
     if st.button("Register"):
         if company_name and industry and description and openings:
-            companies_db[company_name] = {
-                "company_name": company_name,
-                "industry": industry,
-                "description": description,
-                "openings": openings
-            }
-            st.success("Company registration successful!")
+            # Save data to database (Here, we are saving it to a file for simplicity)
+            conn = get_conn()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO companies (company_name, industry, description, openings) VALUES (?, ?, ?, ?)",
+                           (company_name, industry, description, openings))
+            conn.commit()
+            conn.close()
+            st.success("Company Registration Successful!")
         else:
-            st.error("Please fill in all details.")
+            st.error("Please fill all fields!")
 
-# Admin login function
-def admin_login():
-    st.subheader("Admin Login")
+# Function for Admin Authentication (PHDCCI, NTTM)
+def authenticate_admin(role):
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
         if username in admin_credentials and admin_credentials[username] == password:
-            st.success(f"Welcome {username}!")
-            if username == "phdcciadmin":
-                phdcci_admin_module()
-            elif username == "nttadmin":
-                nttm_admin_module()
+            st.success(f"Welcome {role} Admin!")
+            return True
         else:
-            st.error("Invalid credentials.")
+            st.error("Invalid username or password!")
+            return False
+    return False
 
-# Modules for admins
-def phdcci_admin_module():
-    st.title("PHDCCI Admin Module")
-    st.write("Here, the PHDCCI admin can oversee all operations.")
+# -------------------------------
 
-def nttm_admin_module():
-    st.title("NTTM Admin Module")
-    st.write("Here, the NTTM admin can oversee all operations.")
+# Handle role-based login or registration
 
-# Main module
-def main():
-    st.title("Internship Management System")
-    
-    role = st.sidebar.selectbox("Login As", ["Student", "Company", "PHDCCI", "NTTM"])
+if role == "Student":
+    # Student module
+    is_registered = st.checkbox("Already registered? Login")
+    if not is_registered:
+        student_registration()
+    else:
+        st.write("Please log in here.")
+        # Add login process here (could use email verification or other means)
 
-    if role == "Student":
-        action = st.radio("Select Action", ["Login", "Register"])
-        if action == "Login":
-            student_login()
-        elif action == "Register":
-            register_student()
+elif role == "Company":
+    # Company module
+    is_registered = st.checkbox("Already registered? Login")
+    if not is_registered:
+        company_registration()
+    else:
+        st.write("Please log in here.")
+        # Add login process here (could use company email verification or other means)
 
-    elif role == "Company":
-        action = st.radio("Select Action", ["Login", "Register"])
-        if action == "Login":
-            student_login()  # You can add a different login for companies later
-        elif action == "Register":
-            register_company()
+elif role == "PHDCCI":
+    # Admin module for PHDCCI
+    if authenticate_admin("PHDCCI"):
+        st.write("You can now access all student and company data.")
+        # Implement admin features like viewing all applicants, giving recommendations, etc.
 
-    elif role == "PHDCCI":
-        admin_login()
+elif role == "NTTM":
+    # Admin module for NTTM
+    if authenticate_admin("NTTM"):
+        st.write("You can now access all student and company data.")
+        # Implement admin features like viewing PHDCCI recommendations, approving final lists, etc.
 
-    elif role == "NTTM":
-        admin_login()
-
-if __name__ == "__main__":
-    main()
