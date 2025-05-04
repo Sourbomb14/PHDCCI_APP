@@ -294,7 +294,7 @@ def main():
                 """,
                 unsafe_allow_html=True,
             ):
-                student_choice = st.radio("Select Action", ["Register", "Login"])
+                student_choice = st.radio("Select Action", ["Register", "Login"], key="student_radio") # Added key
                 if student_choice == "Register":
                     student_register()
                 elif student_choice == "Login":
@@ -308,7 +308,7 @@ def main():
                 """,
                 unsafe_allow_html=True,
             ):
-                company_choice = st.radio("Select Action", ["Register", "Login"])
+                company_choice = st.radio("Select Action", ["Register", "Login"], key="company_radio") # Added key
                 if company_choice == "Register":
                     company_register()
                 elif company_choice == "Login":
