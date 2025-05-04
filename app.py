@@ -212,7 +212,6 @@ def nttm_admin_dashboard():
 # --- Main App ---
 def main():
     """Main function to run the Streamlit app."""
-    st.title("Internship & Placement Portal")
 
     # --- Initialize Session State ---
     if 'logged_in' not in st.session_state:
@@ -220,44 +219,102 @@ def main():
         st.session_state.user_role = None
 
     ensure_directories()  # Ensure directories exist
-    initialize_db()     # Initialize the database
+    initialize_db()  # Initialize the database
 
     if not st.session_state.logged_in:
-        # --- Role Selection on Main Page ---
-        st.markdown("## Choose Your Role")
-        col1, col2, col3, col4 = st.columns(4)  # Create four columns
+        # --- Styled Landing Page ---
+        st.title("Internship & Placement Portal")
 
-        with col1:
-            if st.button("Student"):
+        # Use columns for layout
+        col1, col2, col3 = st.columns([1, 2, 1])  # Adjust column widths as needed
+
+        with col2:
+            st.markdown(
+                """
+                <style>
+                .big-title {
+                    font-size: 2.5rem;
+                    font-weight: bold;
+                    color: #007bff;  /* Blue color for emphasis */
+                    margin-bottom: 1rem;
+                    text-align: center;
+                }
+                .tagline {
+                    font-size: 1.2rem;
+                    color: #555;
+                    margin-bottom: 2rem;
+                    text-align: center;
+                }
+                .role-button {
+                    padding: 0.75rem 1.5rem;
+                    font-size: 1rem;
+                    border-radius: 0.375rem;
+                    margin-bottom: 1rem;
+                    width: 100%;
+                    display: block;
+                    background-color: #007bff; /* Blue */
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    transition: background-color 0.3s ease;
+                    text-align: center;
+                }
+                .role-button:hover {
+                    background-color: #0056b3;  /* Darker blue on hover */
+                }
+                .info-box {
+                    background-color: #e9ecef; /* Light gray background */
+                    padding: 1rem;
+                    border-radius: 0.375rem;
+                    margin-bottom: 1rem;
+                    text-align: center;
+                    color: #333;
+                    font-size: 0.9rem;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown("<h1 class='big-title'>Welcome to Our Portal</h1>", unsafe_allow_html=True)
+            st.markdown(
+                "<p class='tagline'>Connecting Students and Companies for Exciting Opportunities</p>",
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                "<p class='info-box'>Are you a Student, Company, or Administrator? Choose your role to get started.</p>",
+                unsafe_allow_html=True,
+            )
+
+            if st.button("Student", key="student_button", className="role-button"):
                 student_choice = st.radio("Select Action", ["Register", "Login"])
                 if student_choice == "Register":
                     student_register()
                 elif student_choice == "Login":
-                    student_dashboard() #changed from previous login
+                    student_dashboard()
                     st.session_state.logged_in = True
                     st.session_state.user_role = "student"
 
-        with col2:
-            if st.button("Company"):
+            if st.button("Company", key="company_button", className="role-button"):
                 company_choice = st.radio("Select Action", ["Register", "Login"])
                 if company_choice == "Register":
                     company_register()
                 elif company_choice == "Login":
-                    company_dashboard() #changed from previous login
+                    company_dashboard()
                     st.session_state.logged_in = True
                     st.session_state.user_role = "company"
 
-        with col3:
-            if st.button("PHDCCI"):
+            if st.button("PHDCCI", key="phdcci_button", className="role-button"):
                 if authenticate_admin("PHDCCI"):
                     st.session_state.logged_in = True
                     st.session_state.user_role = "phdcci"
 
-        with col4:
-            if st.button("NTTM"):
+            if st.button("NTTM", key="nttm_button", className="role-button"):
                 if authenticate_admin("NTTM"):
                     st.session_state.logged_in = True
                     st.session_state.user_role = "nttm"
+
     # ---  Route to correct dashboard ---
     if st.session_state.logged_in:
         if st.session_state.user_role == "student":
@@ -269,8 +326,7 @@ def main():
         elif st.session_state.user_role == "nttm":
             nttm_admin_dashboard()
         else:
-            st.error("Unknown user role. Please contact administrator.") #error message
+            st.error("Unknown user role. Please contact administrator.")
 
 if __name__ == "__main__":
     main()
-
