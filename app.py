@@ -1,68 +1,81 @@
+# internship_portal_app.py
+
 import streamlit as st
 import sqlite3
 import os
+import pandas as pd
 
-# Path to the existing folders and database in your GitHub repository
+# ------------------------ Configuration ------------------------
 UPLOAD_FOLDER = "uploads/resumes"
 DATA_FOLDER = "data"
 DB_PATH = os.path.join(DATA_FOLDER, "users.db")
 
-# Initialize database if not already present
+if not os.path.exists(DATA_FOLDER):
+    os.makedirs(DATA_FOLDER)
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+# ------------------------ Database Initialization ------------------------
 def initialize_db():
-    # Ensure the 'data' folder exists
-    if not os.path.exists(DATA_FOLDER):
-        os.makedirs(DATA_FOLDER)
-        
-    # Check if the database file exists
-    if not os.path.exists(DB_PATH):
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        # Create students table
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            contact TEXT,
-            email TEXT,
-            qualification TEXT,
-            aadhar TEXT,
-            resume TEXT
-        )
-        """)
-
-        # Create companies table
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS companies (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            company_name TEXT,
-            industry TEXT,
-            description TEXT,
-            openings TEXT
-        )
-        """)
-
-        conn.commit()
-        conn.close()
-
-# Function to get the database connection
-def get_conn():
     conn = sqlite3.connect(DB_PATH)
-    return conn
+    cursor = conn.cursor()
 
-# -------------------------------
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        contact TEXT,
+        email TEXT UNIQUE,
+        qualification TEXT,
+        aadhar TEXT,
+        resume TEXT
+    )""")
 
-# Admin credentials (hardcoded for now)
-admin_credentials = {
-    "phdcciadmin": "phdcci123",
-    "nttadmin": "ntt123"
-}
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS companies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT,
+        industry TEXT,
+        description TEXT,
+        openings TEXT
+    )""")
 
-# Role-specific login or registration
-role = st.sidebar.selectbox("Login As", ["Student", "Company", "PHDCCI", "NTTM"])
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS applications (
+        student_id INTEGER,
+        company_id INTEGER,
+        status TEXT DEFAULT 'Applied',
+        FOREIGN KEY(student_id) REFERENCES students(id),
+        FOREIGN KEY(company_id) REFERENCES companies(id)
+    )""")
 
-# Function for Student Registration
-def student_registration():
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS recommendations (
+        student_id INTEGER,
+        company_id INTEGER,
+        recommendation TEXT,
+        approved TEXT DEFAULT 'Pending',
+        FOREIGN KEY(student_id) REFERENCES students(id),
+        FOREIGN KEY(company_id) REFERENCES companies(id)
+    )""")
+
+    conn.commit()
+    conn.close()
+
+initialize_db()
+
+# ------------------------ Utilities ------------------------
+def get_conn():
+    return sqlite3.connect(DB_PATH)
+
+def get_student_by_email(email):
+    conn = get_conn()
+    student = pd.read_sql(f"SELECT * FROM students WHERE email='{email}'", conn)
+    conn.close()
+    return student
+
+# ------------------------ Registration & Login ------------------------
+def student_register():
     st.title("Student Registration")
     name = st.text_input("Name")
     contact = st.text_input("Contact Number")
@@ -72,86 +85,138 @@ def student_registration():
     resume = st.file_uploader("Upload Resume", type=["pdf", "docx", "txt"])
 
     if st.button("Register"):
-        if name and contact and email and qualification and aadhar and resume:
-            # Save data to database (Here, we are saving it to a file for simplicity)
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO students (name, contact, email, qualification, aadhar, resume) VALUES (?, ?, ?, ?, ?, ?)",
-                           (name, contact, email, qualification, aadhar, resume.name))
-            conn.commit()
-            conn.close()
-            st.success("Registration Successful!")
+        if all([name, contact, email, qualification, aadhar, resume]):
+            resume_path = os.path.join(UPLOAD_FOLDER, resume.name)
+            with open(resume_path, "wb") as f:
+                f.write(resume.read())
+            try:
+                conn = get_conn()
+                conn.execute("INSERT INTO students (name, contact, email, qualification, aadhar, resume) VALUES (?, ?, ?, ?, ?, ?)",
+                             (name, contact, email, qualification, aadhar, resume.name))
+                conn.commit()
+                conn.close()
+                st.success("Registration successful!")
+            except sqlite3.IntegrityError:
+                st.error("Email already registered!")
         else:
-            st.error("Please fill all fields and upload a resume!")
+            st.error("Please fill in all fields.")
 
-# Function for Company Registration
-def company_registration():
+def student_login():
+    st.title("Student Login")
+    email = st.text_input("Email-ID")
+    if st.button("Login"):
+        student = get_student_by_email(email)
+        if not student.empty:
+            st.success(f"Welcome, {student.iloc[0]['name']}")
+            st.subheader("Your Profile")
+            st.dataframe(student)
+
+            st.subheader("Available Companies")
+            companies = pd.read_sql("SELECT * FROM companies", get_conn())
+            st.dataframe(companies)
+
+            selected = st.selectbox("Apply to Company", companies["company_name"])
+            if st.button("Apply"):
+                company_id = companies[companies["company_name"] == selected]["id"].values[0]
+                conn = get_conn()
+                student_id = student["id"].values[0]
+                conn.execute("INSERT INTO applications (student_id, company_id) VALUES (?, ?)", (student_id, company_id))
+                conn.commit()
+                conn.close()
+                st.success("Applied Successfully!")
+        else:
+            st.error("Student not found!")
+
+def company_register():
     st.title("Company Registration")
-    company_name = st.text_input("Company Name")
+    name = st.text_input("Company Name")
     industry = st.text_input("Industry")
-    description = st.text_area("Description of Company")
+    desc = st.text_area("Company Description")
     openings = st.text_area("Internship/Job Openings")
 
     if st.button("Register"):
-        if company_name and industry and description and openings:
-            # Save data to database (Here, we are saving it to a file for simplicity)
+        if all([name, industry, desc, openings]):
             conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO companies (company_name, industry, description, openings) VALUES (?, ?, ?, ?)",
-                           (company_name, industry, description, openings))
+            conn.execute("INSERT INTO companies (company_name, industry, description, openings) VALUES (?, ?, ?, ?)",
+                         (name, industry, desc, openings))
             conn.commit()
             conn.close()
-            st.success("Company Registration Successful!")
+            st.success("Company Registered Successfully!")
         else:
             st.error("Please fill all fields!")
 
-# Function for Admin Authentication (PHDCCI, NTTM)
-def authenticate_admin(role):
+def company_login():
+    st.title("Company Login")
+    name = st.text_input("Company Name")
+    if st.button("Login"):
+        conn = get_conn()
+        companies = pd.read_sql("SELECT * FROM companies WHERE company_name=?", conn, params=(name,))
+        if not companies.empty:
+            st.success(f"Welcome {name}")
+            comp_id = companies["id"].values[0]
+            applicants = pd.read_sql(f"SELECT s.* FROM students s JOIN applications a ON s.id = a.student_id WHERE a.company_id={comp_id}", conn)
+            st.dataframe(applicants)
+
+            student_to_shortlist = st.selectbox("Shortlist a student", applicants["name"] if not applicants.empty else [])
+            if st.button("Shortlist") and student_to_shortlist:
+                student_id = applicants[applicants["name"] == student_to_shortlist]["id"].values[0]
+                conn.execute("INSERT OR REPLACE INTO recommendations (student_id, company_id, recommendation) VALUES (?, ?, ?)",
+                             (student_id, comp_id, 'recommended'))
+                conn.commit()
+                st.success("Student Shortlisted")
+        else:
+            st.error("Company not found")
+
+# Admin (PHDCCI and NTTM)
+admin_credentials = {"phdcciadmin": "phdcci123", "nttadmin": "ntt123"}
+
+def admin_login(admin_type):
+    st.title(f"{admin_type} Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
-        if username in admin_credentials and admin_credentials[username] == password:
-            st.success(f"Welcome {role} Admin!")
-            return True
+        if admin_credentials.get(username) == password:
+            st.success(f"Welcome {admin_type}")
+            conn = get_conn()
+            if admin_type == "PHDCCI":
+                df = pd.read_sql("SELECT * FROM recommendations", conn)
+                st.dataframe(df)
+            elif admin_type == "NTTM":
+                df = pd.read_sql("SELECT * FROM recommendations WHERE recommendation='recommended'", conn)
+                st.dataframe(df)
+                approve_id = st.number_input("Enter Student ID to Approve", min_value=1, step=1)
+                if st.button("Approve"):
+                    conn.execute("UPDATE recommendations SET approved='approved' WHERE student_id=?", (approve_id,))
+                    conn.commit()
+                    st.success("Approved")
         else:
-            st.error("Invalid username or password!")
-            return False
-    return False
+            st.error("Invalid credentials")
 
-# -------------------------------
+# ------------------------ Main App ------------------------
 
-# Call the initialize_db function to ensure the database is ready
-initialize_db()
+def main():
+    st.title("Internship & Placement Portal")
+    choice = st.selectbox("Choose User Type", ["Landing Page", "Student", "Company", "PHDCCI", "NTTM"])
 
-# Handle role-based login or registration
+    if choice == "Landing Page":
+        st.header("Welcome to the Internship & Placement Portal")
+        st.info("Choose a category from the sidebar")
+    elif choice == "Student":
+        mode = st.radio("Mode", ["Register", "Login"])
+        if mode == "Register":
+            student_register()
+        else:
+            student_login()
+    elif choice == "Company":
+        mode = st.radio("Mode", ["Register", "Login"])
+        if mode == "Register":
+            company_register()
+        else:
+            company_login()
+    elif choice == "PHDCCI":
+        admin_login("PHDCCI")
+    elif choice == "NTTM":
+        admin_login("NTTM")
 
-if role == "Student":
-    # Student module
-    is_registered = st.checkbox("Already registered? Login")
-    if not is_registered:
-        student_registration()
-    else:
-        st.write("Please log in here.")
-        # Add login process here (could use email verification or other means)
-
-elif role == "Company":
-    # Company module
-    is_registered = st.checkbox("Already registered? Login")
-    if not is_registered:
-        company_registration()
-    else:
-        st.write("Please log in here.")
-        # Add login process here (could use company email verification or other means)
-
-elif role == "PHDCCI":
-    # Admin module for PHDCCI
-    if authenticate_admin("PHDCCI"):
-        st.write("You can now access all student and company data.")
-        # Implement admin features like viewing all applicants, giving recommendations, etc.
-
-elif role == "NTTM":
-    # Admin module for NTTM
-    if authenticate_admin("NTTM"):
-        st.write("You can now access all student and company data.")
-        # Implement admin features like viewing PHDCCI recommendations, approving final lists, etc.
+if __name__ == '__main__':
+    main()
